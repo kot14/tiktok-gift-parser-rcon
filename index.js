@@ -184,20 +184,42 @@ async function connectTikTok() {
     })
   );
 
+  // Трекуємо останній repeatCount для кожного комбо-подарунку
+  const comboState = new Map(); // key: `${uniqueId}_${giftName}`, value: lastRepeatCount
+
   connection.on("gift", async (data) => {
-    // Ігноруємо проміжні повтори, обробляємо лише фінал комбо або одноразовий подарунок
-    if (data.giftType === 1 && data.repeatEnd === false) {
-      return;
+    const comboKey = `${data.uniqueId}_${data.giftName}`;
+    const lastRepeatCount = comboState.get(comboKey) || 0;
+    const currentRepeatCount = data.repeatCount || 1;
+    
+    // Для комбо-подарунків обчислюємо скільки нових подарунків додалося
+    let giftsToProcess = 1;
+    if (data.giftType === 1) {
+      // Комбо-подарунок: обробляємо тільки нові подарунки (різниця)
+      giftsToProcess = currentRepeatCount - lastRepeatCount;
+      if (giftsToProcess <= 0) {
+        return; // Немає нових подарунків
+      }
+      comboState.set(comboKey, currentRepeatCount);
+      // Якщо комбо закінчилося, очищаємо стан
+      if (data.repeatEnd === true) {
+        comboState.delete(comboKey);
+      }
+    } else {
+      // Одноразовий подарунок: обробляємо як є
+      giftsToProcess = currentRepeatCount;
+      comboState.delete(comboKey); // Очищаємо на випадок якщо був старий стан
     }
 
     addLog(
       "gift",
-      `${data.uniqueId} надіслав ${data.giftName} x${data.repeatCount}`,
+      `${data.uniqueId} надіслав ${data.giftName} x${giftsToProcess} (всього: ${currentRepeatCount})`,
       {
         user: data.uniqueId,
         nickname: data.nickname,
         gift: data.giftName,
-        repeat: data.repeatCount,
+        repeat: currentRepeatCount,
+        newGifts: giftsToProcess,
       }
     );
     const action = pickActionForGift(data.giftName);
@@ -206,11 +228,14 @@ async function connectTikTok() {
       return;
     }
 
-    try {
-      await runAction(action, data);
-      addLog("action", `Скрипт ${action.name} виконано`);
-    } catch (err) {
-      addLog("error", `Помилка у скрипті ${action.name}: ${err.message}`);
+    // Виконуємо команду для кожного нового подарунку
+    for (let i = 0; i < giftsToProcess; i++) {
+      try {
+        await runAction(action, data);
+        addLog("action", `Скрипт ${action.name} виконано (${i + 1}/${giftsToProcess})`);
+      } catch (err) {
+        addLog("error", `Помилка у скрипті ${action.name}: ${err.message}`);
+      }
     }
   });
 
