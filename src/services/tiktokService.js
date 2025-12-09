@@ -12,9 +12,10 @@ export async function stopTikTok() {
     try {
       await connection.disconnect();
     } catch (err) {
+      const errorMessage = err?.message || err?.toString() || String(err) || "Невідома помилка";
       console.warn(
         "⚠️  Не вдалося коректно відключитися від TikTok",
-        err.message
+        errorMessage
       );
     }
     connection = null;
@@ -87,7 +88,8 @@ export async function connectTikTok(config, compiledActions) {
           `Скрипт ${action.name} виконано (${i + 1}/${giftsToProcess})`
         );
       } catch (err) {
-        addLog("error", `Помилка у скрипті ${action.name}: ${err.message}`);
+        const errorMessage = err?.message || err?.toString() || String(err) || "Невідома помилка";
+        addLog("error", `Помилка у скрипті ${action.name}: ${errorMessage}`);
       }
     }
   });
@@ -103,7 +105,15 @@ export async function connectTikTok(config, compiledActions) {
   connection.on("error", async (err) => {
     // Логуємо помилку, але не відключаємо RCON, якщо підключення ще активно
     // Багато помилок можуть бути тимчасовими і не впливають на роботу стріму
-    addLog("warn", `Попередження TikTok: ${err.message}`);
+    // Пропускаємо помилки без повідомлення, щоб не засмічувати логи
+    if (!err || err.message === undefined) {
+      return;
+    }
+    const errorMessage = err.message;
+    // Фільтруємо неважливі помилки
+    if (errorMessage && errorMessage.trim() !== "") {
+      addLog("warn", `Попередження TikTok: ${errorMessage}`);
+    }
   });
 
   connection.on("disconnected", async () => {
@@ -124,7 +134,8 @@ export async function connectTikTok(config, compiledActions) {
   } catch (err) {
     // Логуємо помилку тільки якщо підключення дійсно не вдалося
     if (!isConnectedSuccessfully) {
-      addLog("error", `Не вдалося підключитися до TikTok: ${err.message}`);
+      const errorMessage = err?.message || err?.toString() || String(err) || "Невідома помилка";
+      addLog("error", `Не вдалося підключитися до TikTok: ${errorMessage}`);
     }
   }
 }
