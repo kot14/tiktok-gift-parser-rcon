@@ -1,0 +1,11 @@
+{
+  "tiktokUsername": "your tiktok_username",
+  "sessionId": "your_session_id_cookie",
+  "rcon": {
+    "host": "localhost",
+    "port": 25575,
+    "password": "8888"
+  },
+  "targetPlayer": "your_minecraft_player_name",
+  "actions": []
+}

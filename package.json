@@ -1,0 +1,16 @@
+{
+  "name": "tiktok-minecraft-bot",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2",
+    "rcon-client": "^4.0.1",
+    "tiktok-live-connector": "^1.2.3",
+    "express": "^4.21.2",
+    "cors": "^2.8.5"
+  }
+}
