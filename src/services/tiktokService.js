@@ -54,12 +54,17 @@ export async function connectTikTok(config, compiledActions) {
   );
 
   connection.on("gift", async (data) => {
+    console.log(`[TikTok] Отримано подію подарунку: ${data.giftName}, repeatCount=${data.repeatCount}, giftType=${data.giftType}, repeatEnd=${data.repeatEnd}`);
+    
     const processed = processGift(data);
     if (!processed) {
+      console.log(`[TikTok] Подію пропущено: немає нових подарунків`);
       return; // Немає нових подарунків
     }
 
     const { giftsToProcess, currentRepeatCount } = processed;
+
+    console.log(`[TikTok] Обробка: ${giftsToProcess} нових подарунків з ${currentRepeatCount} всього`);
 
     addLog(
       "gift",
@@ -80,8 +85,10 @@ export async function connectTikTok(config, compiledActions) {
     }
 
     // Виконуємо команду для кожного нового подарунку
+    console.log(`[TikTok] Запуск скрипту ${action.name} ${giftsToProcess} разів`);
     for (let i = 0; i < giftsToProcess; i++) {
       try {
+        console.log(`[TikTok] Виконання скрипту ${action.name} (${i + 1}/${giftsToProcess})`);
         await runAction(action, data, config);
         addLog(
           "action",
@@ -89,9 +96,11 @@ export async function connectTikTok(config, compiledActions) {
         );
       } catch (err) {
         const errorMessage = err?.message || err?.toString() || String(err) || "Невідома помилка";
+        console.error(`[TikTok] Помилка у скрипті ${action.name} (${i + 1}/${giftsToProcess}):`, errorMessage);
         addLog("error", `Помилка у скрипті ${action.name}: ${errorMessage}`);
       }
     }
+    console.log(`[TikTok] Завершено обробку ${giftsToProcess} подарунків`);
   });
 
   connection.on("streamEnd", async () => {
