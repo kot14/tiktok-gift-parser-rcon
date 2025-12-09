@@ -1,253 +1,5 @@
-// index.js
-import fs from "fs";
-import path from "path";
-import express from "express";
-import cors from "cors";
-import { WebcastPushConnection } from "tiktok-live-connector";
-import { Rcon } from "rcon-client";
-
-const CONFIG_PATH = path.join(process.cwd(), "config.json");
-const ADMIN_PORT = process.env.ADMIN_PORT || 3000;
-
-let connection;
-let rcon;
-let config = loadConfig();
-let compiledActions = compileActions(config.actions);
-const logs = [];
-const MAX_LOGS = 300;
-
-function addLog(type, message, extra = undefined) {
-  const entry = {
-    ts: Date.now(),
-    type,
-    message,
-    extra,
-  };
-  logs.push(entry);
-  if (logs.length > MAX_LOGS) {
-    logs.splice(0, logs.length - MAX_LOGS);
-  }
-  console.log(`[${type}] ${message}`, extra ?? "");
-}
-
-function loadConfig() {
-  try {
-    const file = fs.readFileSync(CONFIG_PATH, "utf8");
-    return JSON.parse(file);
-  } catch (err) {
-    console.warn("⚠️  Не знайдено config.json, використовую дефолт", err.message);
-    return {
-      tiktokUsername: "",
-      sessionId: "",
-      rcon: { host: "localhost", port: 25575, password: "" },
-      targetPlayer: "",
-      actions: [],
-    };
-  }
-}
-
-function saveConfig(nextConfig) {
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(nextConfig, null, 2));
-}
-
-function compileAction(action) {
-  if (!action?.code) {
-    return { ...action, error: "code is empty" };
-  }
-
-  try {
-    // code повинно повертати функцію (наприклад async ({ rcon, event }) => {})
-    const fn = eval(action.code);
-    if (typeof fn !== "function") {
-      throw new Error("Code must evaluate to a function");
-    }
-    return { ...action, run: fn, error: null };
-  } catch (err) {
-    return { ...action, run: null, error: err.message };
-  }
-}
-
-function compileActions(actions = []) {
-  return actions.map(compileAction);
-}
-
-async function initRCON() {
-  if (rcon) {
-    return rcon;
-  }
-
-  try {
-    rcon = new Rcon({
-      host: config.rcon.host,
-      port: config.rcon.port,
-      password: config.rcon.password,
-    });
-    await rcon.connect();
-    console.log("✅ RCON підключено до Minecraft сервера!");
-    return rcon;
-  } catch (err) {
-    console.error("❌ Помилка RCON:", err.message);
-    throw err;
-  }
-}
-
-async function disconnectRcon() {
-  if (rcon) {
-    try {
-      await rcon.end();
-    } catch (err) {
-      console.warn("⚠️  Не вдалося коректно закрити RCON", err.message);
-    }
-    rcon = null;
-  }
-}
-
-async function stopTikTok() {
-  if (connection) {
-    try {
-      await connection.disconnect();
-    } catch (err) {
-      console.warn("⚠️  Не вдалося коректно відключитися від TikTok", err.message);
-    }
-    connection = null;
-    addLog("info", "Зупинено підключення до TikTok");
-  }
-}
-
-function pickActionForGift(giftName) {
-  return compiledActions.find(
-    (action) => action.giftName === giftName && !action.error
-  );
-}
-
-async function runAction(action, event, { useMockRcon = false } = {}) {
-  const logs = [];
-  const log = (...args) => {
-    const line = args
-      .map((item) => (typeof item === "string" ? item : JSON.stringify(item)))
-      .join(" ");
-    logs.push(line);
-    console.log(`[${action.name}] ${line}`);
-  };
-
-  const activeRcon =
-    useMockRcon && !rcon
-      ? {
-          send: async (cmd) => {
-            logs.push(`[mock] ${cmd}`);
-            return `[mock] ${cmd}`;
-          },
-        }
-      : await initRCON();
-
-  if (!action.run) {
-    throw new Error(action.error || "Action is not compiled");
-  }
-
-  const result = await action.run({
-    rcon: activeRcon,
-    event,
-    config,
-    log,
-  });
-
-  return { result, logs };
-}
-
-async function connectTikTok() {
-  await stopTikTok();
-
-  if (!config.tiktokUsername) {
-    console.warn("⚠️  tiktokUsername порожній, не підключаю TikTok");
-    addLog("warn", "tiktokUsername порожній, не підключаю TikTok");
-    return;
-  }
-
-  connection = new WebcastPushConnection(config.tiktokUsername, {
-    sessionId: config.sessionId,
-    enableExtendedGiftInfo: true,
-  });
-
-  connection.on("chat", (data) => {
-    console.log(`${data.uniqueId} (${data.nickname}): ${data.comment}`);
-    addLog("chat", `${data.uniqueId}: ${data.comment}`, {
-      user: data.uniqueId,
-      nickname: data.nickname,
-      comment: data.comment,
-    });
-  });
-
-  connection.on("member", (data) =>
-    addLog("member", `${data.uniqueId} зайшов у стрім`, {
-      user: data.uniqueId,
-      nickname: data.nickname,
-    })
-  );
-
-  connection.on("gift", async (data) => {
-    // Ігноруємо проміжні повтори, обробляємо лише фінал комбо або одноразовий подарунок
-    if (data.giftType === 1 && data.repeatEnd === false) {
-      return;
-    }
-
-    addLog(
-      "gift",
-      `${data.uniqueId} надіслав ${data.giftName} x${data.repeatCount}`,
-      {
-        user: data.uniqueId,
-        nickname: data.nickname,
-        gift: data.giftName,
-        repeat: data.repeatCount,
-      }
-    );
-    const action = pickActionForGift(data.giftName);
-    if (!action) {
-      addLog("info", `Немає скрипту для подарунку ${data.giftName}`);
-      return;
-    }
-
-    try {
-      await runAction(action, data);
-      addLog("action", `Скрипт ${action.name} виконано`);
-    } catch (err) {
-      addLog("error", `Помилка у скрипті ${action.name}: ${err.message}`);
-    }
-  });
-
-  connection.on("streamEnd", async () => {
-    console.log("🔴 Стрім закінчився");
-    await disconnectRcon();
-    addLog("info", "Стрім закінчився");
-  });
-
-  connection.on("error", async (err) => {
-    addLog("error", `Помилка TikTok: ${err.message}`);
-    await disconnectRcon();
-  });
-
-  try {
-    const state = await connection.connect();
-    addLog(
-      "info",
-      `Підключено до стріму ${config.tiktokUsername}, roomId=${state.roomId}`
-    );
-    await initRCON();
-  } catch (err) {
-    addLog("error", `Не вдалося підключитися до TikTok: ${err.message}`);
-  }
-}
-
-async function reloadFromConfig(nextConfig) {
-  config = nextConfig;
-  compiledActions = compileActions(config.actions);
-  saveConfig(config);
-  if (connection) {
-    await disconnectRcon();
-    await connectTikTok();
-  }
-}
-
-function adminHtml() {
+// src/api/adminHtml.js
+export function adminHtml() {
   return `<!doctype html>
 <html>
   <head>
@@ -347,28 +99,31 @@ function adminHtml() {
       let logs = [];
       const TEMPLATES = {
         say: [
-          "async ({ rcon, event, config, log }) => {",
+          "async ({ rcon, event, log }) => {",
           "  const msg = 'Hello ' + (event.nickname || event.uniqueId) + '!';",
           "  await rcon.send('/say ' + msg);",
           "  log('sent:', msg);",
           "}",
         ].join("\\n"),
         zombie: [
-          "async ({ rcon, event, config, log }) => {",
-          "  const cmd = '/execute as @a[name=' + config.targetPlayer + ',limit=1] at @s run summon zombie ~ ~1 ~';",
+          "async ({ rcon, targetPlayer, log }) => {",
+          "  // targetPlayer доступний напряму з конфігу",
+          "  const cmd = '/execute as @a[name=' + targetPlayer + ',limit=1] at @s run summon zombie ~ ~1 ~';",
           "  await rcon.send(cmd);",
           "  log('zombie spawned');",
           "}",
         ].join("\\n"),
         give: [
-          "async ({ rcon, event, config, log }) => {",
-          "  const cmd = '/give ' + config.targetPlayer + ' minecraft:diamond 1';",
+          "async ({ rcon, targetPlayer, log }) => {",
+          "  // Можна використовувати targetPlayer або config.targetPlayer",
+          "  const cmd = '/give ' + targetPlayer + ' minecraft:diamond 1';",
           "  await rcon.send(cmd);",
           "  log('diamond given');",
           "}",
         ].join("\\n"),
         command: [
           "async ({ rcon, event, config, log }) => {",
+          "  // Доступні змінні: rcon, event, config, log, targetPlayer, rconConfig, tiktokUsername, sessionId",
           "  const raw = '/time set day'; // заміни на потрібну команду",
           "  const out = await rcon.send(raw);",
           "  log(out);",
@@ -398,7 +153,8 @@ function adminHtml() {
             <td><input data-field="name" data-idx="\${idx}" value="\${action.name || ""}"/></td>
             <td><input data-field="description" data-idx="\${idx}" value="\${action.description || ""}"/></td>
             <td><textarea data-field="code" data-idx="\${idx}">\${action.code || ""}</textarea>
-              <div class="muted">Приклад: async ({ rcon, event, config, log }) => {\\n  const cmd = \\\`/say hello \\\${event.uniqueId}\\\`;\\n  await rcon.send(cmd);\\n  log("done");\\n}</div>
+              <div class="muted">Приклад: async ({ rcon, event, log, targetPlayer }) => {\\n  const cmd = \\\`/say hello \\\${event.uniqueId}\\\`;\\n  await rcon.send(cmd);\\n  log("done");\\n}</div>
+              <div class="muted" style="margin-top:4px;">Доступні параметри: rcon, event, config, log, targetPlayer, rconConfig, tiktokUsername, sessionId</div>
               <div style="margin:6px 0; display:flex; gap:6px; align-items:center;">
                 <select data-idx="\${idx}" data-field="template">
                   <option value="">Шаблон</option>
@@ -511,7 +267,7 @@ function adminHtml() {
           name: "New action",
           description: "",
           giftName: "",
-          code: "async ({ rcon, event, config, log }) => {\\n  // ваш код тут\\n}"
+          code: "async ({ rcon, event, targetPlayer, log }) => {\\n  // ваш код тут\\n  // Доступні: rcon, event, config, log, targetPlayer, rconConfig, tiktokUsername, sessionId\\n}"
         });
         renderActions();
       });
@@ -542,111 +298,19 @@ function adminHtml() {
       setInterval(loadStatus, 2000);
     </script>
     <div class="muted" style="margin-top:12px;">
-      Параметри у скрипті: { rcon, event, config, log }. event містить giftName, uniqueId, nickname, repeatCount.
+      <strong>Параметри у скрипті:</strong><br/>
+      • <code>rcon</code> - RCON клієнт для відправки команд<br/>
+      • <code>event</code> - дані події (giftName, uniqueId, nickname, repeatCount, giftType, repeatEnd)<br/>
+      • <code>config</code> - повний об'єкт конфігурації<br/>
+      • <code>log</code> - функція для логування<br/>
+      • <code>targetPlayer</code> - ім'я гравця з конфігу (config.targetPlayer)<br/>
+      • <code>rconConfig</code> - налаштування RCON (config.rcon)<br/>
+      • <code>tiktokUsername</code> - ім'я користувача TikTok<br/>
+      • <code>sessionId</code> - session ID для TikTok<br/>
+      <br/>
+      <strong>Приклад:</strong> <code>async ({ rcon, targetPlayer, event, log }) => { await rcon.send('/give ' + targetPlayer + ' diamond 1'); }</code>
     </div>
   </body>
 </html>`;
 }
 
-function createAdminServer() {
-  const app = express();
-  app.use(cors());
-  app.use(express.json({ limit: "1mb" }));
-
-  app.get("/", (_req, res) => {
-    res.setHeader("Content-Type", "text/html");
-    res.send(adminHtml());
-  });
-
-  app.get("/api/config", (_req, res) => {
-    res.json({ ...config, actions: compiledActions });
-  });
-
-  app.get("/api/status", (_req, res) => {
-    res.json({ running: Boolean(connection), logs });
-  });
-
-  app.put("/api/config", async (req, res) => {
-    try {
-      const nextConfig = {
-        ...config,
-        ...req.body,
-        rcon: { ...config.rcon, ...(req.body.rcon || {}) },
-        actions: req.body.actions || [],
-      };
-      await reloadFromConfig(nextConfig);
-      res.json({ ...config, actions: compiledActions });
-    } catch (err) {
-      res.status(400).json({ error: err.message });
-    }
-  });
-
-  app.post("/api/start", async (_req, res) => {
-    try {
-      await connectTikTok();
-      res.json({ running: Boolean(connection) });
-    } catch (err) {
-      res.status(400).json({ error: err.message });
-    }
-  });
-
-  app.post("/api/stop", async (_req, res) => {
-    try {
-      await stopTikTok();
-      await disconnectRcon();
-      res.json({ running: false });
-    } catch (err) {
-      res.status(400).json({ error: err.message });
-    }
-  });
-
-  app.post("/api/actions/test", async (req, res) => {
-    const action = compileAction(req.body.action);
-    if (action.error) {
-      return res.status(400).json({ error: action.error });
-    }
-    try {
-      const payload =
-        req.body.event || { giftName: action.giftName, uniqueId: "tester", nickname: "Tester", repeatCount: 1 };
-      const { logs, result } = await runAction(action, payload, { useMockRcon: false });
-      res.json({ ok: true, logs, result: result ?? null });
-    } catch (err) {
-      res.status(400).json({ error: err.message });
-    }
-  });
-
-  app.post("/api/actions/run", async (req, res) => {
-    const action = compiledActions.find((a) => a.id === req.body.id);
-    if (!action) {
-      return res.status(404).json({ error: "Action not found" });
-    }
-    try {
-      const payload =
-        req.body.event || { giftName: action.giftName, uniqueId: "manual", nickname: "Manual", repeatCount: 1 };
-      const { logs, result } = await runAction(action, payload);
-      res.json({ ok: true, logs, result: result ?? null });
-    } catch (err) {
-      res.status(400).json({ error: err.message });
-    }
-  });
-
-  app.listen(ADMIN_PORT, () => {
-    console.log(`🛠  Панель: http://localhost:${ADMIN_PORT}`);
-  });
-}
-
-async function main() {
-  createAdminServer();
-}
-
-process.on("SIGINT", async () => {
-  console.log("\n🛑 Зупинка...");
-  await stopTikTok();
-  await disconnectRcon();
-  process.exit(0);
-});
-
-main().catch((err) => {
-  console.error("❌ Критична помилка:", err);
-  process.exit(1);
-});
