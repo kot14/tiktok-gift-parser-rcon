@@ -1,6 +1,9 @@
 // src/api/routes.js
 import express from "express";
 import cors from "cors";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 import { adminHtml } from "./adminHtml.js";
 import { getLogs } from "../services/logger.js";
 import { compileAction, runAction } from "../services/actionService.js";
@@ -8,6 +11,9 @@ import { connectTikTok, stopTikTok, isConnected } from "../services/tiktokServic
 import { disconnectRcon } from "../services/rconService.js";
 import { saveConfig, loadConfig } from "../config/configManager.js";
 import { compileActions } from "../services/actionService.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export function createAdminServer(getConfig, getCompiledActions, reloadCallback) {
   const app = express();
@@ -27,6 +33,16 @@ export function createAdminServer(getConfig, getCompiledActions, reloadCallback)
 
   app.get("/api/status", (_req, res) => {
     res.json({ running: isConnected(), logs: getLogs() });
+  });
+
+  app.get("/api/gifts", (_req, res) => {
+    try {
+      const giftsPath = join(__dirname, "../types/tiktokGifts.json");
+      const giftsData = JSON.parse(readFileSync(giftsPath, "utf-8"));
+      res.json(giftsData.tiktokGifts || []);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to load gifts" });
+    }
   });
 
   app.put("/api/config", async (req, res) => {

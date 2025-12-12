@@ -25,11 +25,17 @@ export function compileActions(actions = []) {
 
 export function pickActionForGift(compiledActions, giftName) {
   return compiledActions.find(
-    (action) => action.giftName === giftName && !action.error
+    (action) =>
+      action.giftName.toLowerCase() === giftName.toLowerCase() && !action.error
   );
 }
 
-export async function runAction(action, event, config, { useMockRcon = false } = {}) {
+export async function runAction(
+  action,
+  event,
+  config,
+  { useMockRcon = false } = {}
+) {
   const logs = [];
   const log = (...args) => {
     const line = args
@@ -70,4 +76,3 @@ export async function runAction(action, event, config, { useMockRcon = false } =
 
   return { result, logs };
 }
-
