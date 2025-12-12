@@ -12,7 +12,8 @@ export async function stopTikTok() {
     try {
       await connection.disconnect();
     } catch (err) {
-      const errorMessage = err?.message || err?.toString() || String(err) || "Невідома помилка";
+      const errorMessage =
+        err?.message || err?.toString() || String(err) || "Невідома помилка";
       console.warn(
         "⚠️  Не вдалося коректно відключитися від TikTok",
         errorMessage
@@ -54,8 +55,10 @@ export async function connectTikTok(config, compiledActions) {
   );
 
   connection.on("gift", async (data) => {
-    console.log(`[TikTok] Отримано подію подарунку: ${data.giftName}, repeatCount=${data.repeatCount}, giftType=${data.giftType}, repeatEnd=${data.repeatEnd}`);
-    
+    console.log(
+      `[TikTok] Отримано подію подарунку: ${data.giftName}, repeatCount=${data.repeatCount}, giftType=${data.giftType}, repeatEnd=${data.repeatEnd}`
+    );
+
     const processed = processGift(data);
     if (!processed) {
       console.log(`[TikTok] Подію пропущено: немає нових подарунків`);
@@ -64,7 +67,9 @@ export async function connectTikTok(config, compiledActions) {
 
     const { giftsToProcess, currentRepeatCount } = processed;
 
-    console.log(`[TikTok] Обробка: ${giftsToProcess} нових подарунків з ${currentRepeatCount} всього`);
+    console.log(
+      `[TikTok] Обробка: ${giftsToProcess} нових подарунків з ${currentRepeatCount} всього`
+    );
 
     addLog(
       "gift",
@@ -85,18 +90,30 @@ export async function connectTikTok(config, compiledActions) {
     }
 
     // Виконуємо команду для кожного нового подарунку
-    console.log(`[TikTok] Запуск скрипту ${action.name} ${giftsToProcess} разів`);
+    console.log(
+      `[TikTok] Запуск скрипту ${action.name} ${giftsToProcess} разів`
+    );
     for (let i = 0; i < giftsToProcess; i++) {
       try {
-        console.log(`[TikTok] Виконання скрипту ${action.name} (${i + 1}/${giftsToProcess})`);
+        console.log(
+          `[TikTok] Виконання скрипту ${action.name} (${
+            i + 1
+          }/${giftsToProcess})`
+        );
         await runAction(action, data, config);
         addLog(
           "action",
           `Скрипт ${action.name} виконано (${i + 1}/${giftsToProcess})`
         );
       } catch (err) {
-        const errorMessage = err?.message || err?.toString() || String(err) || "Невідома помилка";
-        console.error(`[TikTok] Помилка у скрипті ${action.name} (${i + 1}/${giftsToProcess}):`, errorMessage);
+        const errorMessage =
+          err?.message || err?.toString() || String(err) || "Невідома помилка";
+        console.error(
+          `[TikTok] Помилка у скрипті ${action.name} (${
+            i + 1
+          }/${giftsToProcess}):`,
+          errorMessage
+        );
         addLog("error", `Помилка у скрипті ${action.name}: ${errorMessage}`);
       }
     }
@@ -135,6 +152,7 @@ export async function connectTikTok(config, compiledActions) {
   try {
     const state = await connection.connect();
     isConnectedSuccessfully = true;
+
     addLog(
       "info",
       `Підключено до стріму ${config.tiktokUsername}, roomId=${state.roomId}`
@@ -143,7 +161,8 @@ export async function connectTikTok(config, compiledActions) {
   } catch (err) {
     // Логуємо помилку тільки якщо підключення дійсно не вдалося
     if (!isConnectedSuccessfully) {
-      const errorMessage = err?.message || err?.toString() || String(err) || "Невідома помилка";
+      const errorMessage =
+        err?.message || err?.toString() || String(err) || "Невідома помилка";
       addLog("error", `Не вдалося підключитися до TikTok: ${errorMessage}`);
     }
   }
@@ -156,4 +175,3 @@ export function getConnection() {
 export function isConnected() {
   return Boolean(connection);
 }
-

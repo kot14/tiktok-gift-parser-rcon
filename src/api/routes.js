@@ -39,7 +39,12 @@ export function createAdminServer(getConfig, getCompiledActions, reloadCallback)
     try {
       const giftsPath = join(__dirname, "../types/tiktokGifts.json");
       const giftsData = JSON.parse(readFileSync(giftsPath, "utf-8"));
-      res.json(giftsData.tiktokGifts || []);
+      // Нова структура: масив об'єктів {name, price}
+      // Витягуємо тільки назви для конструктора скриптів
+      const giftNames = Array.isArray(giftsData)
+        ? giftsData.map(gift => gift.name || gift)
+        : (giftsData.tiktokGifts || []);
+      res.json(giftNames);
     } catch (err) {
       res.status(500).json({ error: "Failed to load gifts" });
     }
