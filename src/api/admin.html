@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>TikTok Gift Scripts</title>
+    <link rel="stylesheet" href="/admin.css" />
+  </head>
+  <body>
+    <div class="header-controls">
+      <div>
+        <h1>Gift scripts dashboard</h1>
+        <p class="muted">
+          Редагуй конфіг, додавай/тестуй скрипти без перезапуску сервера.
+        </p>
+      </div>
+      <button id="themeToggle" class="theme-toggle">🌙 Темна</button>
+    </div>
+    <div class="row">
+      <div class="card">
+        <h3>Підключення</h3>
+        <div class="actions" style="margin-bottom: 8px">
+          <button id="btnStart">▶️ Старт</button>
+          <button id="btnStop">⏹ Стоп</button>
+          <span id="status" class="muted"></span>
+        </div>
+        <label
+          >TikTok username
+          <input id="tiktokUsername" />
+        </label>
+        <label
+          >sessionId
+          <input id="sessionId" />
+        </label>
+        <label
+          >Target player
+          <input id="targetPlayer" />
+        </label>
+      </div>
+      <div class="card">
+        <h3>RCON</h3>
+        <label
+          >Host
+          <input id="rconHost" />
+        </label>
+        <label
+          >Port
+          <input id="rconPort" type="number" />
+        </label>
+        <label
+          >Password
+          <input id="rconPassword" type="password" />
+        </label>
+      </div>
+    </div>
+
+    <div class="actions" style="margin-top: 12px">
+      <button id="saveConfig">💾 Зберегти конфіг</button>
+      <span id="saveStatus" class="muted"></span>
+    </div>
+
+    <h3 style="margin-top: 24px">Логи трансляції</h3>
+    <pre
+      id="logs"
+      style="
+        min-height: 120px;
+        padding: 12px;
+        max-height: 240px;
+        overflow: auto;
+        border-radius: 8px;
+      "
+    ></pre>
+
+    <div class="muted" style="margin-top: 12px">
+      <strong>Параметри у скрипті:</strong><br />
+      • <code>rcon</code> - RCON клієнт для відправки команд<br />
+      • <code>event</code> - дані події (giftName, uniqueId, nickname,
+      repeatCount, giftType, repeatEnd)<br />
+      • <code>config</code> - повний об'єкт конфігурації<br />
+      • <code>log</code> - функція для логування<br />
+      • <code>targetPlayer</code> - ім'я гравця з конфігу
+      (config.targetPlayer)<br />
+      • <code>rconConfig</code> - налаштування RCON (config.rcon)<br />
+      • <code>tiktokUsername</code> - ім'я користувача TikTok<br />
+      • <code>sessionId</code> - session ID для TikTok<br />
+      <br />
+      <strong>Приклад:</strong>
+      <code
+        >async ({ rcon, targetPlayer, event, log }) => { await rcon.send('/give
+        ' + targetPlayer + ' diamond 1'); }</code
+      >
+    </div>
+
+
+
+    <h3 style="margin-top: 24px">Скрипти на події</h3>
+    <button id="addAction" style="margin-top: 12px">➕ Додати скрипт</button>
+    <table>
+      <thead>
+        <tr>
+          <th>Тип тригера</th>
+          <th>Налаштування</th>
+          <th>Назва</th>
+          <th>Опис</th>
+          <th>Код</th>
+          <th>Дії</th>
+        </tr>
+      </thead>
+      <tbody id="actionsTable"></tbody>
+    </table>
+    
+
+    <div id="toast" class="sticky" style="display: none"></div>
+
+
+    <script type="module" src="/admin/js/main.js"></script>
+
+  </body>
+</html>
