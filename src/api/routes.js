@@ -20,6 +20,30 @@ export function createAdminServer(getConfig, getCompiledActions, reloadCallback)
   app.use(cors());
   app.use(express.json({ limit: "1mb" }));
 
+  // Serve static CSS file
+  app.get("/admin.css", (_req, res) => {
+    try {
+      const cssPath = join(__dirname, "admin.css");
+      const css = readFileSync(cssPath, "utf-8");
+      res.setHeader("Content-Type", "text/css");
+      res.send(css);
+    } catch (err) {
+      res.status(404).send("/* CSS file not found */");
+    }
+  });
+
+  // Serve static JS files
+  app.get("/admin/js/:filename", (req, res) => {
+    try {
+      const jsPath = join(__dirname, "admin", "js", req.params.filename);
+      const js = readFileSync(jsPath, "utf-8");
+      res.setHeader("Content-Type", "application/javascript");
+      res.send(js);
+    } catch (err) {
+      res.status(404).send("// JS file not found");
+    }
+  });
+
   app.get("/", (_req, res) => {
     res.setHeader("Content-Type", "text/html");
     res.send(adminHtml());
@@ -39,12 +63,11 @@ export function createAdminServer(getConfig, getCompiledActions, reloadCallback)
     try {
       const giftsPath = join(__dirname, "../types/tiktokGifts.json");
       const giftsData = JSON.parse(readFileSync(giftsPath, "utf-8"));
-      // Нова структура: масив об'єктів {name, price}
-      // Витягуємо тільки назви для конструктора скриптів
-      const giftNames = Array.isArray(giftsData)
-        ? giftsData.map(gift => gift.name || gift)
+      // Повертаємо повні об'єкти з name та price для відображення ціни
+      const gifts = Array.isArray(giftsData)
+        ? giftsData.map(gift => typeof gift === 'object' ? gift : { name: gift, price: null })
         : (giftsData.tiktokGifts || []);
-      res.json(giftNames);
+      res.json(gifts);
     } catch (err) {
       res.status(500).json({ error: "Failed to load gifts" });
     }
