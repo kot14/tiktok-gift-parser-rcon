@@ -26,7 +26,21 @@ export function compileActions(actions = []) {
 export function pickActionForGift(compiledActions, giftName) {
   return compiledActions.find(
     (action) =>
-      action.giftName.toLowerCase() === giftName.toLowerCase() && !action.error
+      action.triggerType === "gift" &&
+      action.giftName?.toLowerCase() === giftName.toLowerCase() &&
+      !action.error
+  );
+}
+
+export function pickActionForSubscription(compiledActions) {
+  return compiledActions.find(
+    (action) => action.triggerType === "subscription" && !action.error
+  );
+}
+
+export function pickActionsForLikes(compiledActions) {
+  return compiledActions.filter(
+    (action) => action.triggerType === "likes" && !action.error
   );
 }
 

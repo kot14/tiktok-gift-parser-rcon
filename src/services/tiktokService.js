@@ -2,10 +2,17 @@
 import { WebcastPushConnection } from "tiktok-live-connector";
 import { addLog } from "./logger.js";
 import { disconnectRcon, initRCON } from "./rconService.js";
-import { pickActionForGift, runAction } from "./actionService.js";
+import {
+  pickActionForGift,
+  pickActionForSubscription,
+  pickActionsForLikes,
+  runAction,
+} from "./actionService.js";
 import { processGift } from "../utils/giftProcessor.js";
 
 let connection = null;
+// Відстеження підписаних користувачів у поточному стрімі
+let subscribedUsers = new Set();
 
 export async function stopTikTok() {
   if (connection) {
@@ -20,6 +27,8 @@ export async function stopTikTok() {
       );
     }
     connection = null;
+    // Очищаємо список підписаних користувачів при зупинці
+    subscribedUsers.clear();
     addLog("info", "Зупинено підключення до TikTok");
   }
 }
@@ -120,8 +129,119 @@ export async function connectTikTok(config, compiledActions) {
     console.log(`[TikTok] Завершено обробку ${giftsToProcess} подарунків`);
   });
 
+  connection.on("subscribe", async (data) => {
+    const userId = data.uniqueId;
+
+    // Перевіряємо, чи користувач вже підписався в цьому стрімі
+    if (subscribedUsers.has(userId)) {
+      console.log(
+        `[TikTok] Пропущено повторну підписку: ${userId} (${data.nickname}) вже підписаний у цьому стрімі`
+      );
+      addLog(
+        "info",
+        `Пропущено повторну підписку: ${userId} вже підписаний у цьому стрімі`,
+        {
+          user: userId,
+          nickname: data.nickname,
+        }
+      );
+      return;
+    }
+
+    // Додаємо користувача до списку підписаних
+    subscribedUsers.add(userId);
+
+    console.log(
+      `[TikTok] Нова підписка: ${userId} (${data.nickname}) підписався`
+    );
+    addLog(
+      "subscribe",
+      `${userId} (${data.nickname}) підписався`,
+      {
+        user: userId,
+        nickname: data.nickname,
+      }
+    );
+
+    // Шукаємо скрипт для підписки
+    const action = pickActionForSubscription(compiledActions);
+    if (action) {
+      try {
+        console.log(`[TikTok] Запуск скрипту ${action.name} для підписки`);
+        await runAction(action, data, config);
+        addLog("action", `Скрипт ${action.name} виконано для підписки`);
+      } catch (err) {
+        const errorMessage =
+          err?.message || err?.toString() || String(err) || "Невідома помилка";
+        console.error(
+          `[TikTok] Помилка у скрипті ${action.name} для підписки:`,
+          errorMessage
+        );
+        addLog("error", `Помилка у скрипті ${action.name}: ${errorMessage}`);
+      }
+    }
+  });
+
+  connection.on("like", async (data) => {
+    const userId = data.uniqueId;
+    const likesInThisEvent = data.likeCount || 0;
+
+    console.log(
+      `[TikTok] Лайк: ${userId} (${data.nickname}) поставив ${likesInThisEvent} лайків за раз (всього в стрімі: ${data.totalLikeCount})`
+    );
+    addLog(
+      "like",
+      `${userId} (${data.nickname}) поставив ${likesInThisEvent} лайків за раз (всього в стрімі: ${data.totalLikeCount})`,
+      {
+        user: userId,
+        nickname: data.nickname,
+        likeCount: likesInThisEvent,
+        totalLikeCount: data.totalLikeCount,
+      }
+    );
+
+    // Шукаємо скрипти для лайків
+    const likeActions = pickActionsForLikes(compiledActions);
+    if (likeActions.length > 0 && likesInThisEvent > 0) {
+      // Перевіряємо кожен скрипт - чи кількість лайків за раз >= порогу
+      for (const action of likeActions) {
+        const threshold = action.likeThreshold || 100;
+
+        // Скрипт спрацює тільки якщо в цій події поставлено >= порогу лайків
+        if (likesInThisEvent >= threshold) {
+          try {
+            console.log(
+              `[TikTok] Запуск скрипту ${action.name} для лайків (поставлено ${likesInThisEvent} лайків за раз, поріг ${threshold})`
+            );
+            await runAction(action, data, config);
+            addLog(
+              "action",
+              `Скрипт ${action.name} виконано для лайків (поставлено ${likesInThisEvent} лайків за раз, поріг ${threshold})`
+            );
+          } catch (err) {
+            const errorMessage =
+              err?.message ||
+              err?.toString() ||
+              String(err) ||
+              "Невідома помилка";
+            console.error(
+              `[TikTok] Помилка у скрипті ${action.name} для лайків:`,
+              errorMessage
+            );
+            addLog(
+              "error",
+              `Помилка у скрипті ${action.name}: ${errorMessage}`
+            );
+          }
+        }
+      }
+    }
+  });
+
   connection.on("streamEnd", async () => {
     console.log("🔴 Стрім закінчився");
+    // Очищаємо список підписаних користувачів при завершенні стріму
+    subscribedUsers.clear();
     await disconnectRcon();
     addLog("info", "Стрім закінчився");
   });
@@ -144,6 +264,8 @@ export async function connectTikTok(config, compiledActions) {
 
   connection.on("disconnected", async () => {
     console.log("🔴 Відключено від TikTok");
+    // Очищаємо список підписаних користувачів при відключенні
+    subscribedUsers.clear();
     await disconnectRcon();
     isConnectedSuccessfully = false;
     addLog("info", "Відключено від TikTok");
@@ -152,6 +274,8 @@ export async function connectTikTok(config, compiledActions) {
   try {
     const state = await connection.connect();
     isConnectedSuccessfully = true;
+    // Очищаємо список підписаних користувачів при новому підключенні
+    subscribedUsers.clear();
 
     addLog(
       "info",

@@ -23,10 +23,46 @@ export const ActionsManager = {
 
     tbody.innerHTML = "";
     (this.state?.actions || []).forEach((action, idx) => {
+      const triggerType = action.triggerType || "gift";
       const tr = document.createElement("tr");
-      const giftSelectCell = document.createElement("td");
-      const giftSelect = GiftSelect.createGiftSelect(idx, action.giftName);
-      giftSelectCell.appendChild(giftSelect);
+      
+      // Створюємо комірку для типу тригера
+      const triggerTypeCell = document.createElement("td");
+      const triggerSelect = document.createElement("select");
+      triggerSelect.setAttribute("data-field", "triggerType");
+      triggerSelect.setAttribute("data-idx", idx);
+      triggerSelect.innerHTML = `
+        <option value="gift" ${triggerType === "gift" ? "selected" : ""}>Gift</option>
+        <option value="subscription" ${triggerType === "subscription" ? "selected" : ""}>Subscription</option>
+        <option value="likes" ${triggerType === "likes" ? "selected" : ""}>Likes</option>
+      `;
+      triggerTypeCell.appendChild(triggerSelect);
+
+      // Створюємо комірку для Gift/Subscription/Likes налаштувань
+      const triggerConfigCell = document.createElement("td");
+      
+      if (triggerType === "gift") {
+        const giftSelect = GiftSelect.createGiftSelect(idx, action.giftName);
+        triggerConfigCell.appendChild(giftSelect);
+        // Setup gift select events
+        GiftSelect.setupGiftSelectEvents(giftSelect, idx, this.state);
+      } else if (triggerType === "subscription") {
+        triggerConfigCell.innerHTML = '<span class="muted">Скрипт спрацює при новій підписці</span>';
+      } else if (triggerType === "likes") {
+        const likesInput = document.createElement("input");
+        likesInput.type = "number";
+        likesInput.min = "1";
+        likesInput.setAttribute("data-field", "likeThreshold");
+        likesInput.setAttribute("data-idx", idx);
+        likesInput.value = action.likeThreshold || "100";
+        likesInput.placeholder = "Кількість лайків";
+        const label = document.createElement("div");
+        label.className = "muted";
+        label.style.marginTop = "4px";
+        label.textContent = "Скрипт спрацює якщо користувач поставить цю кількість лайків за раз";
+        triggerConfigCell.appendChild(likesInput);
+        triggerConfigCell.appendChild(label);
+      }
 
       tr.innerHTML = `
         <td><input data-field="name" data-idx="${idx}" value="${
@@ -66,11 +102,27 @@ export const ActionsManager = {
         </div>
         </td>
       `;
-      tr.insertBefore(giftSelectCell, tr.firstChild);
+      
+      // Вставляємо комірки в правильному порядку
+      tr.insertBefore(triggerTypeCell, tr.firstChild);
+      tr.insertBefore(triggerConfigCell, triggerTypeCell.nextSibling);
       tbody.appendChild(tr);
 
-      // Setup gift select events
-      GiftSelect.setupGiftSelectEvents(giftSelect, idx, this.state);
+      // Додаємо обробник зміни типу тригера
+      triggerSelect.addEventListener("change", () => {
+        const newType = triggerSelect.value;
+        if (this.state.actions && this.state.actions[idx]) {
+          this.state.actions[idx].triggerType = newType;
+          // Очищаємо специфічні поля при зміні типу
+          if (newType !== "gift") {
+            this.state.actions[idx].giftName = "";
+          }
+          if (newType !== "likes") {
+            this.state.actions[idx].likeThreshold = undefined;
+          }
+          this.renderActions();
+        }
+      });
     });
   },
 
@@ -81,9 +133,10 @@ export const ActionsManager = {
     table.addEventListener("input", (e) => {
       const idx = Number(e.target.dataset.idx);
       const field = e.target.dataset.field;
-      if (Number.isInteger(idx) && field && field !== "giftName") {
+      if (Number.isInteger(idx) && field && field !== "giftName" && field !== "triggerType") {
         if (this.state.actions && this.state.actions[idx]) {
-          this.state.actions[idx][field] = e.target.value;
+          const value = field === "likeThreshold" ? Number(e.target.value) : e.target.value;
+          this.state.actions[idx][field] = value;
         }
       }
     });
@@ -91,9 +144,10 @@ export const ActionsManager = {
     table.addEventListener("change", (e) => {
       const idx = Number(e.target.dataset.idx);
       const field = e.target.dataset.field;
-      if (Number.isInteger(idx) && field && field !== "giftName") {
+      if (Number.isInteger(idx) && field && field !== "giftName" && field !== "triggerType") {
         if (this.state.actions && this.state.actions[idx]) {
-          this.state.actions[idx][field] = e.target.value;
+          const value = field === "likeThreshold" ? Number(e.target.value) : e.target.value;
+          this.state.actions[idx][field] = value;
         }
       }
     });
@@ -173,6 +227,7 @@ export const ActionsManager = {
       id: crypto.randomUUID(),
       name: "New action",
       description: "",
+      triggerType: "gift",
       giftName: "",
       code: "async ({ rcon, event, targetPlayer, log }) => {\\n  // ваш код тут\\n  // Доступні: rcon, event, config, log, targetPlayer, rconConfig, tiktokUsername, sessionId\\n}",
     });
