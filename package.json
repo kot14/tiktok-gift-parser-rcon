@@ -7,10 +7,10 @@
     "start": "node src/index.js"
   },
   "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
     "node-fetch": "^3.3.2",
     "rcon-client": "^4.0.1",
-    "tiktok-live-connector": "^1.2.3",
-    "express": "^4.21.2",
-    "cors": "^2.8.5"
+    "tiktok-live-connector": "^2.1.0"
   }
 }

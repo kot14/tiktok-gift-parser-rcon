@@ -7,7 +7,11 @@ import { dirname, join } from "path";
 import { adminHtml } from "./adminHtml.js";
 import { getLogs } from "../services/logger.js";
 import { compileAction, runAction } from "../services/actionService.js";
-import { connectTikTok, stopTikTok, isConnected } from "../services/tiktokService.js";
+import {
+  connectTikTok,
+  stopTikTok,
+  isConnected,
+} from "../services/tiktokService.js";
 import { disconnectRcon } from "../services/rconService.js";
 import { saveConfig, loadConfig } from "../config/configManager.js";
 import { compileActions } from "../services/actionService.js";
@@ -15,7 +19,11 @@ import { compileActions } from "../services/actionService.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export function createAdminServer(getConfig, getCompiledActions, reloadCallback) {
+export function createAdminServer(
+  getConfig,
+  getCompiledActions,
+  reloadCallback
+) {
   const app = express();
   app.use(cors());
   app.use(express.json({ limit: "1mb" }));
@@ -61,12 +69,16 @@ export function createAdminServer(getConfig, getCompiledActions, reloadCallback)
 
   app.get("/api/gifts", (_req, res) => {
     try {
-      const giftsPath = join(__dirname, "../types/tiktokGifts.json");
+      const giftsPath = join(__dirname, "../types/gifts.json");
       const giftsData = JSON.parse(readFileSync(giftsPath, "utf-8"));
       // Повертаємо повні об'єкти з name та price для відображення ціни
       const gifts = Array.isArray(giftsData)
-        ? giftsData.map(gift => typeof gift === 'object' ? gift : { name: gift, price: null })
-        : (giftsData.tiktokGifts || []);
+        ? giftsData.map((gift) =>
+            typeof gift === "object"
+              ? gift
+              : { name: gift.name, diamond_count: gift.diamond_count }
+          )
+        : giftsData.tiktokGifts || [];
       res.json(gifts);
     } catch (err) {
       res.status(500).json({ error: "Failed to load gifts" });
@@ -156,4 +168,3 @@ export function createAdminServer(getConfig, getCompiledActions, reloadCallback)
 
   return app;
 }
-

@@ -27,7 +27,7 @@ export function pickActionForGift(compiledActions, giftName) {
   return compiledActions.find(
     (action) =>
       action.triggerType === "gift" &&
-      action.giftName?.toLowerCase() === giftName.toLowerCase() &&
+      action.giftName === giftName &&
       !action.error
   );
 }

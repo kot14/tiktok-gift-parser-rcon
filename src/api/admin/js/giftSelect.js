@@ -10,7 +10,7 @@ export const GiftSelect = {
     if (!searchTerm) return giftList;
     const term = searchTerm.toLowerCase();
     return giftList.filter((gift) => {
-      const name = typeof gift === 'string' ? gift : (gift.name || '');
+      const name = typeof gift === "string" ? gift : gift.name || "";
       return name.toLowerCase().includes(term);
     });
   },
@@ -18,43 +18,46 @@ export const GiftSelect = {
   getGiftPrice(giftName) {
     if (!giftName) return null;
     const gift = giftList.find((g) => {
-      const name = typeof g === 'string' ? g : (g.name || '');
+      const name = typeof g === "string" ? g : g.name || "";
       return name === giftName;
     });
     if (!gift) return null;
-    return typeof gift === 'object' && gift.price !== null && gift.price !== undefined 
-      ? gift.price 
+    return typeof gift === "object" &&
+      gift.diamond_count !== null &&
+      gift.diamond_count !== undefined
+      ? gift.diamond_count
       : null;
   },
 
   updatePriceDisplay(input) {
-    const priceSpan = input.parentElement?.querySelector('.gift-price-display');
+    const priceSpan = input.parentElement?.querySelector(".gift-price-display");
     if (!priceSpan) return;
-    
+
     const giftName = input.value.trim();
     if (!giftName) {
-      priceSpan.textContent = '';
-      priceSpan.style.display = 'none';
+      priceSpan.textContent = "";
+      priceSpan.style.display = "none";
       return;
     }
-    
+
     // Перевіряємо, чи є точний збіг з подарунком
     const price = this.getGiftPrice(giftName);
     if (price !== null) {
       priceSpan.textContent = `(${price})`;
-      priceSpan.style.display = 'inline';
+      priceSpan.style.display = "inline";
     } else {
-      priceSpan.textContent = '';
-      priceSpan.style.display = 'none';
+      priceSpan.textContent = "";
+      priceSpan.style.display = "none";
     }
   },
 
   createGiftSelect(idx, currentValue) {
-    console.log(currentValue)
+    console.log(currentValue);
     const wrapper = document.createElement("div");
     wrapper.className = "gift-select-wrapper";
     wrapper.innerHTML = `
       <div style="display: flex; align-items: center; gap: 8px;">
+
         <input 
           type="text" 
           class="gift-select-input" 
@@ -66,6 +69,7 @@ export const GiftSelect = {
           style="flex: 1;"
         />
         <span class="gift-price-display" style="color: #999; font-size: 0.9em; white-space: nowrap; display: none;"></span>
+        
       </div>
       <div class="gift-select-dropdown" data-idx="${idx}"></div>
     `;
@@ -83,16 +87,20 @@ export const GiftSelect = {
     dropdown.innerHTML =
       filtered.length > 0
         ? filtered
-            .map(
-              (gift, i) => {
-                const name = typeof gift === 'string' ? gift : (gift.name || '');
-                const price = typeof gift === 'object' && gift.price !== null && gift.price !== undefined 
-                  ? gift.price 
+            .map((gift, i) => {
+              const name = typeof gift === "string" ? gift : gift.name || "";
+              const price =
+                typeof gift === "object" &&
+                gift.diamond_count !== null &&
+                gift.diamond_count !== undefined
+                  ? gift.diamond_count
                   : null;
-                const priceDisplay = price !== null ? ` <span style="color: #999; font-size: 0.9em;">(${price})</span>` : '';
-                return `<div class="gift-select-item" data-value="${name}" data-index="${i}">${name}${priceDisplay}</div>`;
-              }
-            )
+              const priceDisplay =
+                price !== null
+                  ? ` <span style="color: #999; font-size: 0.9em;">(${price})</span> <img src=${gift.icon.url_list[0]} style="width:12px; height:12px; vertical-align:middle;"/>`
+                  : "";
+              return `<div class="gift-select-item" data-value="${name}" data-index="${i}">${name}${priceDisplay}</div>`;
+            })
             .join("")
         : '<div class="gift-select-item" style="color:#999;">Нічого не знайдено</div>';
 
@@ -193,10 +201,7 @@ export const GiftSelect = {
           ".gift-select-item[data-value]"
         );
         items.forEach((i, idx) => {
-          i.classList.toggle(
-            "selected",
-            idx === parseInt(item.dataset.index)
-          );
+          i.classList.toggle("selected", idx === parseInt(item.dataset.index));
         });
         giftInput.dataset.selectedIndex = item.dataset.index;
       }
@@ -206,4 +211,3 @@ export const GiftSelect = {
     this.updatePriceDisplay(giftInput);
   },
 };
-
