@@ -263,7 +263,7 @@ export async function connectTikTok(config, compiledActions) {
     // Очищаємо список підписаних користувачів при новому підключенні
     subscribedUsers.clear();
 
-    saveAvaliableGifts(connection);
+    //saveAvaliableGifts(connection);
     addLog(
       "info",
       `Підключено до стріму ${config.tiktokUsername}, roomId=${state.roomId}`
