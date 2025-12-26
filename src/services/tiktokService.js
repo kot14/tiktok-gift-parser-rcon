@@ -164,7 +164,7 @@ function createSubscriptionHandler(compiledActions, config) {
   return async (data) => {
     const userId = data.user?.uniqueId || data.user?.userId || "unknown";
     console.log("[TikTok] Обробка підписки", userId);
-    if(userId === "unknown") {
+    if (userId === "unknown") {
       return;
     }
     if (subscribedUsers.has(userId)) {
@@ -226,7 +226,7 @@ function createLikesHandler(compiledActions, config) {
     for (const action of likeActions) {
       const threshold = action.likeThreshold;
 
-      if(!threshold) {
+      if (!threshold) {
         continue;
       }
 
@@ -243,9 +243,10 @@ function createLikesHandler(compiledActions, config) {
             "action",
             `Скрипт ${action.name} виконано для лайків (користувач ${userId}: ${currentUserLikes} лайків)`
           );
-         
         } catch (err) {
-          console.error("[TikTok] Помилка у скрипті ${action.name} для лайків: ${err}");
+          console.error(
+            "[TikTok] Помилка у скрипті ${action.name} для лайків: ${err}"
+          );
         }
         userLikes.set(userId, 0);
       }
@@ -305,8 +306,13 @@ function handleSuccessfulConnection(state, config) {
 function handleConnectionError(err, attemptNumber, config, compiledActions) {
   const errorMessage =
     err?.message || err?.toString() || String(err) || "Невідома помилка";
-  console.error(`❌ Помилка підключення (спроба ${attemptNumber}): ${errorMessage}`);
-  addLog("error", `Не вдалося підключитися до TikTok (спроба ${attemptNumber}): ${errorMessage}`);
+  console.error(
+    `❌ Помилка підключення (спроба ${attemptNumber}): ${errorMessage}`
+  );
+  addLog(
+    "error",
+    `Не вдалося підключитися до TikTok (спроба ${attemptNumber}): ${errorMessage}`
+  );
 
   if (shouldRetryConnection) {
     console.log(`⏳ Повторна спроба через 10 секунд...`);
@@ -338,7 +344,7 @@ async function attemptConnection(config, compiledActions, attemptNumber = 1) {
   try {
     const state = await connection.connect();
     handleSuccessfulConnection(state, config);
-    // await initRCON(config);
+    await initRCON(config);
   } catch (err) {
     handleConnectionError(err, attemptNumber, config, compiledActions);
   }
@@ -346,10 +352,10 @@ async function attemptConnection(config, compiledActions, attemptNumber = 1) {
 
 export async function connectTikTok(config, compiledActions) {
   await stopTikTok();
-  
+
   // Вмикаємо режим повторних спроб
   shouldRetryConnection = true;
-  
+
   // Починаємо першу спробу підключення
   await attemptConnection(config, compiledActions, 1);
 }
