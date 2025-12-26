@@ -21,6 +21,7 @@ const gift_path = path.join(process.cwd(), "src/types/gifts.json");
 
 let connection = null;
 let userLikes = new Map();
+let disableRcon = false;
 
 const { handleGift, emitter } = createGiftHandler();
 // Відстеження підписаних користувачів у поточному стрімі
@@ -344,7 +345,9 @@ async function attemptConnection(config, compiledActions, attemptNumber = 1) {
   try {
     const state = await connection.connect();
     handleSuccessfulConnection(state, config);
-    await initRCON(config);
+    if (!disableRcon) {
+      await initRCON(config);
+    }
   } catch (err) {
     handleConnectionError(err, attemptNumber, config, compiledActions);
   }

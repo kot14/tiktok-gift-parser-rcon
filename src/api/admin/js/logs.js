@@ -1,4 +1,6 @@
 // Logs management module
+import { api } from "./api.js";
+
 let logs = [];
 
 export const LogsManager = {
@@ -12,13 +14,23 @@ export const LogsManager = {
     this.render();
   },
 
-  clearLogs() {
-    this.setLogs();
-    this.addLog({
-      ts: Date.now(),
-      type: "info",
-      message: "Логи очищено користувачем.",
-    });
+  async clearLogs() {
+    try {
+      await api("/api/logs/clear", { method: "POST" });
+      this.setLogs();
+      this.addLog({
+        ts: Date.now(),
+        type: "info",
+        message: "Логи очищено користувачем.",
+      });
+    } catch (err) {
+      console.error("Failed to clear logs:", err);
+      this.addLog({
+        ts: Date.now(),
+        type: "error",
+        message: `Помилка очищення логів: ${err.message}`,
+      });
+    }
   },
 
   render() {

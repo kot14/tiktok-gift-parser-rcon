@@ -5,7 +5,7 @@ import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { adminHtml } from "./adminHtml.js";
-import { getLogs } from "../services/logger.js";
+import { getLogs, clearLogs } from "../services/logger.js";
 import { compileAction, runAction } from "../services/actionService.js";
 import {
   connectTikTok,
@@ -65,6 +65,11 @@ export function createAdminServer(
 
   app.get("/api/status", (_req, res) => {
     res.json({ running: isConnected(), logs: getLogs() });
+  });
+
+  app.post("/api/logs/clear", (_req, res) => {
+    clearLogs();
+    res.json({ ok: true });
   });
 
   app.get("/api/gifts", (_req, res) => {
