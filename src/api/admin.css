@@ -167,6 +167,12 @@ td {
   background-color: var(--card-bg);
 }
 
+.log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .actions {
   display: flex;
   gap: 70px 0;
@@ -178,7 +184,6 @@ td {
   flex-direction: column;
   gap: 12px;
   width: 100%;
-  
 }
 
 .actions button {
@@ -240,7 +245,7 @@ td {
   margin: auto;
   right: 10px;
   z-index: 20;
-  max-height: min-content
+  max-height: min-content;
 }
 
 .gift-select-input {
@@ -302,4 +307,3 @@ code {
 strong {
   color: var(--text-primary);
 }
-

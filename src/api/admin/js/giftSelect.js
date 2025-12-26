@@ -52,7 +52,6 @@ export const GiftSelect = {
   },
 
   createGiftSelect(idx, currentValue) {
-    console.log(currentValue);
     const wrapper = document.createElement("div");
     wrapper.className = "gift-select-wrapper";
     wrapper.innerHTML = `

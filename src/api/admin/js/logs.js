@@ -12,6 +12,15 @@ export const LogsManager = {
     this.render();
   },
 
+  clearLogs() {
+    this.setLogs();
+    this.addLog({
+      ts: Date.now(),
+      type: "info",
+      message: "Логи очищено користувачем.",
+    });
+  },
+
   render() {
     const target = document.getElementById("logs");
     if (!target) return;
@@ -25,4 +34,3 @@ export const LogsManager = {
       .join("\n");
   },
 };
-

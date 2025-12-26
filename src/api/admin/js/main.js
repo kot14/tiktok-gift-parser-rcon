@@ -40,6 +40,10 @@ const bindEvents = () => {
   document.getElementById("btnStop")?.addEventListener("click", () => {
     ConfigManager.stop();
   });
+
+  document.getElementById("clearLogs")?.addEventListener("click", () => {
+    LogsManager.clearLogs();
+  });
 };
 
 // Status polling
@@ -50,7 +54,7 @@ const startStatusPolling = () => {
       LogsManager.setLogs(status.logs);
     }
   };
-  
+
   updateStatus();
   setInterval(updateStatus, 2000);
 };
@@ -60,7 +64,7 @@ const init = async () => {
   bindEvents();
   ActionsManager.bindTableEvents();
   ActionsManager.setSaveCallback(() => ConfigManager.saveConfig());
-  
+
   await loadGifts();
   await ConfigManager.loadConfig();
   startStatusPolling();
@@ -72,4 +76,3 @@ if (document.readyState === "loading") {
 } else {
   init();
 }
-
